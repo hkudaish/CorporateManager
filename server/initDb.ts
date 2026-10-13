@@ -39,7 +39,7 @@ export const initializeDatabase = async (): Promise<void> => {
          ($16, $17, $18, $19, $20);`,
         [
           'عبدالله محمد آل الشيخ', 'admin@corporate.sa', adminHash, 'admin', '0501234567',
-          'حسن كدايش', 'hkudaish@gmail.com', ownerHash, 'admin', '0501234567',
+          'حسن حكمي', 'hkudaish@gmail.com', ownerHash, 'admin', '0501234567',
           'سارة خالد الشمري', 'compliance@corporate.sa', complianceHash, 'compliance_officer', '0543219876',
           'محمود صالح الزهراني', 'finance@corporate.sa', financeHash, 'finance_manager', '0559876543'
         ]

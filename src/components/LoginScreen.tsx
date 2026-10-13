@@ -53,7 +53,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         ) {
           const ownerUser: User = {
             id: 1,
-            name: 'حسن كدايش',
+            name: 'حسن حكمي',
             email: 'hkudaish@gmail.com',
             role: 'admin',
             phone: '0501234567',

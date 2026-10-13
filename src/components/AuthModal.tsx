@@ -53,7 +53,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         ) {
           const ownerUser = {
             id: 1,
-            name: 'حسن كدايش',
+            name: 'حسن حكمي',
             email: 'hkudaish@gmail.com',
             role: 'admin' as const,
             phone: '0501234567',
