@@ -2,15 +2,21 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-const UPLOAD_ROOT = path.resolve(process.env.UPLOAD_DIR || './uploads');
+const isVercel = Boolean(process.env.VERCEL);
+const defaultUploadDir = isVercel ? '/tmp/uploads' : './uploads';
+const UPLOAD_ROOT = path.resolve(process.env.UPLOAD_DIR || defaultUploadDir);
 export const DOCUMENTS_UPLOAD_DIR = path.join(UPLOAD_ROOT, 'documents');
 
 // Ensure directories exist
-if (!fs.existsSync(UPLOAD_ROOT)) {
-  fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
-}
-if (!fs.existsSync(DOCUMENTS_UPLOAD_DIR)) {
-  fs.mkdirSync(DOCUMENTS_UPLOAD_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(UPLOAD_ROOT)) {
+    fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+  }
+  if (!fs.existsSync(DOCUMENTS_UPLOAD_DIR)) {
+    fs.mkdirSync(DOCUMENTS_UPLOAD_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Upload directory creation warning (acceptable in read-only serverless):', e);
 }
 
 // Multer storage engine
