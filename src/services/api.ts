@@ -41,10 +41,19 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   };
 
   const response = await fetch(`${BASE_URL}${endpoint}`, config);
-  const data = await response.json().catch(() => ({ success: false, message: 'استجابة غير صالحة من الخادم' }));
+  const contentType = response.headers.get('content-type') || '';
 
-  if (!response.ok) {
-    throw new Error(data.message || `خطأ في الطلب (${response.status})`);
+  // If server returned HTML (e.g. Vercel SPA rewrite fallback when backend is offline)
+  if (contentType.includes('text/html')) {
+    throw new Error('خادم الواجهة الخلفية غير متصل أو يعمل بوضع الاستضافة الثابتة.');
+  }
+
+  const data = await response.json().catch(() => {
+    throw new Error('تعذر قراءة الاستجابة من الخادم.');
+  });
+
+  if (!response.ok || (data && data.success === false)) {
+    throw new Error(data?.message || `خطأ في الطلب (${response.status})`);
   }
 
   return data as T;

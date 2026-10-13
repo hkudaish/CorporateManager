@@ -45,9 +45,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       } catch (apiErr: any) {
         // Fallback for valid credentials if backend/db is temporarily offline
         const cleanEmail = email.trim().toLowerCase();
-        if (cleanEmail === 'admin@corporate.sa' && password === 'Admin@2026') {
-          const demoUser: User = {
+
+        // 1. Owner & General Manager Account
+        if (
+          cleanEmail === 'hkudaish@gmail.com' &&
+          (password === 'Admin@1480' || password === 'admin@1480' || password === 'Admin@2026')
+        ) {
+          const ownerUser: User = {
             id: 1,
+            name: 'حسن كدايش',
+            email: 'hkudaish@gmail.com',
+            role: 'admin',
+            phone: '0501234567',
+          };
+          setToken('mock_owner_jwt_session_token_2026');
+          onLoginSuccess(ownerUser);
+          return;
+        } else if (cleanEmail === 'admin@corporate.sa' && password === 'Admin@2026') {
+          const demoUser: User = {
+            id: 2,
             name: 'عبدالله محمد آل الشيخ',
             email: 'admin@corporate.sa',
             role: 'admin',
@@ -58,8 +74,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           return;
         } else if (cleanEmail === 'compliance@corporate.sa' && password === 'Comp@2026') {
           const demoUser: User = {
-            id: 2,
-            name: 'سارة إبراهيم القحطاني',
+            id: 3,
+            name: 'سارة خالد الشمري',
             email: 'compliance@corporate.sa',
             role: 'compliance_officer',
             phone: '0509876543',
@@ -69,8 +85,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           return;
         } else if (cleanEmail === 'finance@corporate.sa' && password === 'Fin@2026') {
           const demoUser: User = {
-            id: 3,
-            name: 'خالد عبدالرحمن العتيبي',
+            id: 4,
+            name: 'محمود صالح الزهراني',
             email: 'finance@corporate.sa',
             role: 'finance_manager',
             phone: '0554433221',
@@ -80,7 +96,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           return;
         }
 
-        throw apiErr;
+        // 2. Check custom users saved in localStorage
+        const storedUsersRaw = localStorage.getItem('corp_system_users');
+        if (storedUsersRaw) {
+          try {
+            const storedUsers: any[] = JSON.parse(storedUsersRaw);
+            const found = storedUsers.find(
+              (u) => u.email && u.email.toLowerCase() === cleanEmail && (!u.password || u.password === password)
+            );
+            if (found) {
+              setToken(`mock_token_${found.id || Date.now()}`);
+              onLoginSuccess({
+                id: found.id || Date.now(),
+                name: found.name,
+                email: found.email,
+                role: found.role || 'compliance_officer',
+                phone: found.phone || '',
+              });
+              return;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // If credentials did not match and backend is offline
+        throw new Error('بيانات الدخول غير صحيحة. يرجى التأكد من البريد الإلكتروني وكلمة المرور.');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'فشل في تسجيل الدخول. يرجى التأكد من صحة البريد وكلمة المرور.');
@@ -119,6 +160,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           role,
           phone: phone.trim(),
         };
+
+        // Persist to local storage users
+        try {
+          const stored = localStorage.getItem('corp_system_users');
+          const list = stored ? JSON.parse(stored) : [];
+          list.push({ ...newUser, password });
+          localStorage.setItem('corp_system_users', JSON.stringify(list));
+        } catch (e) {
+          // ignore
+        }
+
         setToken(`mock_token_${Date.now()}`);
         onLoginSuccess(newUser);
       }

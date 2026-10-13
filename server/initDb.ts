@@ -27,6 +27,7 @@ export const initializeDatabase = async (): Promise<void> => {
       console.log('🌱 جاري إضافة مستخدمي النظام الافتراضيين مع كلمات المرور المشفرة (bcrypt)...');
       
       const adminHash = await bcrypt.hash('Admin@2026', 10);
+      const ownerHash = await bcrypt.hash('Admin@1480', 10);
       const complianceHash = await bcrypt.hash('Comp@2026', 10);
       const financeHash = await bcrypt.hash('Fin@2026', 10);
 
@@ -34,14 +35,16 @@ export const initializeDatabase = async (): Promise<void> => {
         `INSERT INTO users (name, email, password_hash, role, phone) VALUES 
          ($1, $2, $3, $4, $5),
          ($6, $7, $8, $9, $10),
-         ($11, $12, $13, $14, $15);`,
+         ($11, $12, $13, $14, $15),
+         ($16, $17, $18, $19, $20);`,
         [
           'عبدالله محمد آل الشيخ', 'admin@corporate.sa', adminHash, 'admin', '0501234567',
+          'حسن كدايش', 'hkudaish@gmail.com', ownerHash, 'admin', '0501234567',
           'سارة خالد الشمري', 'compliance@corporate.sa', complianceHash, 'compliance_officer', '0543219876',
           'محمود صالح الزهراني', 'finance@corporate.sa', financeHash, 'finance_manager', '0559876543'
         ]
       );
-      console.log('✅ تم تسجيل 3 مستخدمين معتمدين (مدير عام، مسؤول امتثال، مدير مالي).');
+      console.log('✅ تم تسجيل المستخدمين المعتمدين (المدير العام، مسؤول امتثال، مدير مالي).');
     }
 
     // 2. Seed Default Institutions if empty
