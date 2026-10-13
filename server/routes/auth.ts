@@ -330,11 +330,6 @@ router.delete('/users/:id', authenticateToken, requireRole(['admin']), async (re
   try {
     const targetId = parseInt(req.params.id, 10);
 
-    if (req.user?.id === targetId) {
-      res.status(400).json({ success: false, message: 'لا يمكن للمدير العام حذف حسابه الشخصي المسجل به حالياً.' });
-      return;
-    }
-
     const userCheck = await query('SELECT id, name, email FROM users WHERE id = $1;', [targetId]);
     if (userCheck.rows.length === 0) {
       res.status(404).json({ success: false, message: 'المستخدم غير موجود.' });

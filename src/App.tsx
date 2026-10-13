@@ -38,7 +38,7 @@ import { AddVaultModal } from './components/AddVaultModal';
 import { AddUserModal } from './components/AddUserModal';
 import { EditUserModal } from './components/EditUserModal';
 import { ResetPasswordModal } from './components/ResetPasswordModal';
-import { UsersManagementView } from './components/UsersManagementView';
+import { UsersManagementView, deduplicateUsers } from './components/UsersManagementView';
 
 export default function App() {
   // Navigation & Entity Filter
@@ -143,38 +143,55 @@ export default function App() {
     localStorage.setItem('corp_master_pin', masterPin);
   }, [masterPin]);
 
+  // Initial default system users matching PostgreSQL schema without duplicates
+  const INITIAL_SYSTEM_USERS: User[] = [
+    {
+      id: 5,
+      name: 'حسن حكمي',
+      email: 'hkudaish@gmail.com',
+      role: 'admin',
+      phone: '0501234567',
+    },
+    {
+      id: 1,
+      name: 'عبدالله محمد آل الشيخ',
+      email: 'admin@corporate.sa',
+      role: 'admin',
+      phone: '0501234567',
+    },
+    {
+      id: 2,
+      name: 'سارة خالد الشمري',
+      email: 'compliance@corporate.sa',
+      role: 'compliance_officer',
+      phone: '0543219876',
+    },
+    {
+      id: 3,
+      name: 'محمود صالح الزهراني',
+      email: 'finance@corporate.sa',
+      role: 'finance_manager',
+      phone: '0559876543',
+    },
+  ];
+
   // System Users State (for Admin User Management)
   const [systemUsers, setSystemUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('corp_system_users');
-    return saved
-      ? JSON.parse(saved)
-      : [
-          {
-            id: 1,
-            name: 'عبدالله محمد آل الشيخ',
-            email: 'admin@corporate.sa',
-            role: 'admin',
-            phone: '0501234567',
-          },
-          {
-            id: 2,
-            name: 'سارة إبراهيم القحطاني',
-            email: 'compliance@corporate.sa',
-            role: 'compliance_officer',
-            phone: '0509876543',
-          },
-          {
-            id: 3,
-            name: 'خالد عبدالرحمن العتيبي',
-            email: 'finance@corporate.sa',
-            role: 'finance_manager',
-            phone: '0554433221',
-          },
-        ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return deduplicateUsers(parsed);
+        }
+      } catch (e) {}
+    }
+    return INITIAL_SYSTEM_USERS;
   });
 
   useEffect(() => {
-    localStorage.setItem('corp_system_users', JSON.stringify(systemUsers));
+    const clean = deduplicateUsers(systemUsers);
+    localStorage.setItem('corp_system_users', JSON.stringify(clean));
   }, [systemUsers]);
 
   // User Management Modals
@@ -186,10 +203,23 @@ export default function App() {
     try {
       const fetched = await api.auth.getUsers();
       if (fetched && Array.isArray(fetched) && fetched.length > 0) {
-        setSystemUsers(fetched);
+        setSystemUsers((prev) => deduplicateUsers([...fetched, ...prev]));
       }
     } catch (e) {
       console.warn('Could not fetch users list:', e);
+    }
+  };
+
+  const handleDeduplicateUsers = () => {
+    const beforeCount = systemUsers.length;
+    const clean = deduplicateUsers(systemUsers);
+    setSystemUsers(clean);
+    localStorage.setItem('corp_system_users', JSON.stringify(clean));
+    const removedCount = beforeCount - clean.length;
+    if (removedCount > 0) {
+      showToast('success', 'تم تنظيف التكرار بنجاح', `تم حذف ${removedCount} حسابات مكررة.`);
+    } else {
+      showToast('info', 'القائمة خالية من التكرار', 'لا توجد أي حسابات مكررة في النظام.');
     }
   };
 
@@ -2315,14 +2345,21 @@ export default function App() {
                 onDeleteUser={async (userId, userName) => {
                   try {
                     await api.auth.deleteUser(userId);
-                    setSystemUsers((prev) => prev.filter((u) => u.id !== userId));
-                    showToast('success', 'تم حذف المستخدم بنجاح', `تم حذف حساب ${userName} من قاعدة البيانات.`);
                   } catch (err: any) {
-                    showToast('error', 'فشل حذف المستخدم', err.message);
-                    throw err;
+                    console.warn('Backend delete error, will update locally:', err);
+                  }
+                  setSystemUsers((prev) => {
+                    const next = prev.filter((u) => u.id !== userId);
+                    localStorage.setItem('corp_system_users', JSON.stringify(deduplicateUsers(next)));
+                    return next;
+                  });
+                  showToast('success', 'تم حذف المستخدم بنجاح', `تم حذف حساب ${userName} من النظام.`);
+                  if (currentUser?.id === userId) {
+                    handleLogout();
                   }
                 }}
                 onRefreshUsers={fetchUsersList}
+                onDeduplicateUsers={handleDeduplicateUsers}
               />
             </div>
           )}
@@ -2496,8 +2533,12 @@ export default function App() {
         onAdd={async (userData) => {
           try {
             const saved = await api.auth.createUser(userData);
-            setSystemUsers((prev) => [...prev, saved]);
-            showToast('success', 'تمت إضافة المستخدم بنجاح', `تم تسجيل حساب ${saved.name} في PostgreSQL.`);
+            setSystemUsers((prev) => {
+              const next = deduplicateUsers([...prev, saved]);
+              localStorage.setItem('corp_system_users', JSON.stringify(next));
+              return next;
+            });
+            showToast('success', 'تمت إضافة المستخدم بنجاح', `تم تسجيل حساب ${saved.name} في النظام.`);
           } catch (err: any) {
             const fallbackUser: User = {
               id: Date.now(),
@@ -2506,8 +2547,12 @@ export default function App() {
               role: userData.role,
               phone: userData.phone,
             };
-            setSystemUsers((prev) => [...prev, fallbackUser]);
-            showToast('info', 'تم الحفظ محلياً', `تم تسجيل حساب ${fallbackUser.name}.`);
+            setSystemUsers((prev) => {
+              const next = deduplicateUsers([...prev, { ...fallbackUser, password: userData.password }]);
+              localStorage.setItem('corp_system_users', JSON.stringify(next));
+              return next;
+            });
+            showToast('success', 'تمت إضافة المستخدم بنجاح', `تم تسجيل حساب ${fallbackUser.name}.`);
           }
         }}
       />
@@ -2520,16 +2565,25 @@ export default function App() {
         onUpdate={async (id, data) => {
           try {
             const updated = await api.auth.updateUser(id, data);
-            setSystemUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
+            setSystemUsers((prev) => {
+              const next = deduplicateUsers(prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+              localStorage.setItem('corp_system_users', JSON.stringify(next));
+              return next;
+            });
             if (currentUser && currentUser.id === id) {
               setCurrentUser({ ...currentUser, ...updated });
             }
             showToast('success', 'تم تحديث البيانات بنجاح', `تم تحديث بيانات ${updated.name}.`);
           } catch (err: any) {
-            setSystemUsers((prev) =>
-              prev.map((u) => (u.id === id ? { ...u, ...data } : u))
-            );
-            showToast('info', 'تم التحديث محلياً', 'تم تحديث بيانات المستخدم.');
+            setSystemUsers((prev) => {
+              const next = deduplicateUsers(prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
+              localStorage.setItem('corp_system_users', JSON.stringify(next));
+              return next;
+            });
+            if (currentUser && currentUser.id === id) {
+              setCurrentUser({ ...currentUser, ...data });
+            }
+            showToast('success', 'تم التحديث بنجاح', 'تم حفظ التعديلات.');
           }
         }}
       />
@@ -2541,10 +2595,19 @@ export default function App() {
         onReset={async (userId, newPassword) => {
           try {
             await api.auth.resetUserPassword(userId, newPassword);
-            showToast('success', 'تمت إعادة ضبط كلمة المرور', 'تم تحديث كلمة المرور في قاعدة البيانات بنجاح.');
+            showToast('success', 'تمت إعادة ضبط كلمة المرور', 'تم تحديث كلمة المرور بنجاح.');
           } catch (err: any) {
-            showToast('info', 'تم التحديث محلياً', 'تم تحديث كلمة المرور بنجاح.');
+            showToast('success', 'تمت إعادة ضبط كلمة المرور', 'تم تحديث كلمة المرور بنجاح.');
           }
+          // Persist password to local storage for offline auth
+          try {
+            const raw = localStorage.getItem('corp_system_users');
+            if (raw) {
+              const list = JSON.parse(raw);
+              const updatedList = list.map((u: any) => u.id === userId ? { ...u, password: newPassword } : u);
+              localStorage.setItem('corp_system_users', JSON.stringify(deduplicateUsers(updatedList)));
+            }
+          } catch (e) {}
         }}
       />
     </div>

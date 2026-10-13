@@ -14,7 +14,23 @@ interface UsersManagementViewProps {
   onOpenResetPasswordModal: (user: User) => void;
   onDeleteUser: (userId: number, userName: string) => Promise<void>;
   onRefreshUsers: () => void;
+  onDeduplicateUsers?: () => void;
 }
+
+// Helper to deduplicate users by email
+export const deduplicateUsers = (usersList: User[]): User[] => {
+  const seenEmails = new Set<string>();
+  const result: User[] = [];
+  for (const u of usersList) {
+    if (!u || !u.email) continue;
+    const cleanEmail = u.email.toLowerCase().trim();
+    if (!seenEmails.has(cleanEmail)) {
+      seenEmails.add(cleanEmail);
+      result.push(u);
+    }
+  }
+  return result;
+};
 
 export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
   users,
@@ -24,6 +40,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
   onOpenResetPasswordModal,
   onDeleteUser,
   onRefreshUsers,
+  onDeduplicateUsers,
 }) => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -32,14 +49,17 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
 
   const isAdmin = currentUser?.role === 'admin';
 
+  // Automatically deduplicate users
+  const cleanUsers = deduplicateUsers(users);
+
   // Metrics calculation
-  const totalUsers = users.length;
-  const adminCount = users.filter((u) => u.role === 'admin').length;
-  const complianceCount = users.filter((u) => u.role === 'compliance_officer').length;
-  const financeCount = users.filter((u) => u.role === 'finance_manager').length;
+  const totalUsers = cleanUsers.length;
+  const adminCount = cleanUsers.filter((u) => u.role === 'admin').length;
+  const complianceCount = cleanUsers.filter((u) => u.role === 'compliance_officer').length;
+  const financeCount = cleanUsers.filter((u) => u.role === 'finance_manager').length;
 
   // Filtered users
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = cleanUsers.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -124,12 +144,22 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-blue-200/80 mt-1">
-                إضافة وتعديل وحذف مستخدمي النظام وإعادة تعيين كلمات المرور وتحديد الصلاحيات (RBAC).
+                إضافة وتعديل وحذف أي مستخدم في النظام وإعادة تعيين كلمات المرور وتحديد الصلاحيات (RBAC).
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {onDeduplicateUsers && (
+              <button
+                onClick={onDeduplicateUsers}
+                className="px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 rounded-xl transition-all text-xs font-bold flex items-center gap-1.5"
+                title="فحص وإزالة أي حسابات مكررة تلقائياً"
+              >
+                <Filter size={15} />
+                <span>إزالة التكرار</span>
+              </button>
+            )}
             <button
               onClick={onRefreshUsers}
               className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/15 transition-all text-xs font-bold flex items-center gap-1.5"
@@ -338,14 +368,9 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
 
                           {/* Delete User */}
                           <button
-                            disabled={isCurrent}
                             onClick={() => setDeleteConfirmUser(u)}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              isCurrent
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : 'text-red-500 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200'
-                            }`}
-                            title={isCurrent ? 'لا يمكنك حذف حسابك الحالي' : 'حذف المستخدم'}
+                            className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                            title={isCurrent ? 'حذف هذا الحساب' : 'حذف المستخدم'}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -371,6 +396,13 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
             <h3 className="text-base font-black text-slate-800 text-center mb-1">
               تأكيد حذف حساب المستخدم
             </h3>
+
+            {currentUser?.id === deleteConfirmUser.id && (
+              <div className="my-3 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-center text-xs font-bold leading-relaxed">
+                ⚠️ تنبيه: أنت على وشك حذف حسابك الحالي! في حال التأكيد، سيتم إنهاء جلستك وإعادتك لشاشة تسجيل الدخول فوراً.
+              </div>
+            )}
+
             <p className="text-xs text-slate-500 text-center mb-6 leading-relaxed">
               هل أنت متأكد من رغبتك في حذف حساب <span className="font-bold text-slate-800">{deleteConfirmUser.name}</span> ({deleteConfirmUser.email})؟
               سيتم إلغاء كافة صلاحيات الدخول لهذا المستخدم فوراً.
