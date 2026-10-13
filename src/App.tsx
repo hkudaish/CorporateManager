@@ -522,15 +522,35 @@ export default function App() {
     );
   };
 
+  // Time-based Arabic greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    return hour < 12 ? 'صباح الخير' : 'مساء الخير';
+  };
+
+  // Compact Role Badge
+  const getRoleBadge = (role?: string) => {
+    switch (role) {
+      case 'admin':
+        return '👑 المدير العام';
+      case 'compliance_officer':
+        return '⚖️ مسؤول الامتثال';
+      case 'finance_manager':
+        return '💼 المدير المالي';
+      default:
+        return 'مشاهد';
+    }
+  };
+
   // Role Arabic translation
   const getRoleArabicName = (role?: string) => {
     switch (role) {
       case 'admin':
-        return 'المدير العام (كافة الصلاحيات)';
+        return '👑 المدير العام (كافة الصلاحيات)';
       case 'compliance_officer':
-        return 'مسؤول الامتثال والحوكمة';
+        return '⚖️ مسؤول الامتثال والحوكمة';
       case 'finance_manager':
-        return 'المدير المالي والمحاسبي';
+        return '💼 المدير المالي والمحاسبي';
       default:
         return 'مشاهد ومعتمد';
     }
@@ -716,14 +736,45 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top Header */}
         <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-8 shrink-0 z-20 sticky top-0">
-          <div className="flex items-center gap-4">
+          {/* Top Right in RTL: Welcome Greeting + Name & Role */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
               onClick={() => setIsSidebarOpen(true)}
             >
               <Menu size={22} />
             </button>
-            <div className="relative hidden sm:block w-72 md:w-96 group">
+
+            {currentUser && (
+              <div className="flex items-center gap-3 py-1">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-700 text-white font-black text-sm flex items-center justify-center shadow-md shadow-blue-500/20 ring-2 ring-blue-50 shrink-0">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-black text-slate-800 leading-snug">
+                      {getGreeting()}، {currentUser.name} 👋
+                    </span>
+                    <span className="hidden sm:inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200 shadow-xs">
+                      {getRoleBadge(currentUser.role)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                    <span className="sm:hidden font-bold text-blue-600">
+                      {getRoleBadge(currentUser.role)}
+                    </span>
+                    <span className="hidden sm:inline">جلسة موثقة ونشطة</span>
+                    <span className="hidden md:inline">• {TODAY_STR}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Top Left in RTL: Search, Report, Notifications, Account */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Search Input */}
+            <div className="relative hidden xl:block w-64 group">
               <input
                 type="text"
                 placeholder="ابحث عن وثيقة، موظف، معاملة، أو بنك..."
@@ -744,9 +795,7 @@ export default function App() {
                 </button>
               )}
             </div>
-          </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
             {/* Quick Report Print Button */}
             <button
               onClick={() => setIsReportOpen(true)}
@@ -784,14 +833,11 @@ export default function App() {
               <div className="relative" ref={userMenuRef}>
                 <div
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
+                  title="خيارات الحساب والجلسة"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-tr from-slate-900 to-blue-700 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md">
+                  <div className="w-8 h-8 bg-slate-900 rounded-full flex items-center justify-center text-white font-black text-xs shadow-sm">
                     {currentUser.name.charAt(0)}
-                  </div>
-                  <div className="hidden sm:block text-right">
-                    <p className="text-xs font-black text-slate-800 leading-tight">{currentUser.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{getRoleArabicName(currentUser.role)}</p>
                   </div>
                   <ChevronDown size={14} className="text-slate-400" />
                 </div>
@@ -879,11 +925,17 @@ export default function App() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
                 <div className="absolute left-0 bottom-0 top-0 w-64 bg-white/5 transform skew-x-12 pointer-events-none" />
                 <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-blue-500/30 border border-blue-400/40 text-blue-200 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                      لوحة المتابعة الشاملة
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      {getGreeting()}، {currentUser?.name}
                     </span>
-                    <span className="text-xs text-blue-200/80 font-mono">تاريخ اليوم: {TODAY_STR}</span>
+                    <span className="bg-blue-500/30 border border-blue-400/40 text-blue-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                      {getRoleArabicName(currentUser?.role)}
+                    </span>
+                    <span className="text-xs text-blue-200/80 font-mono hidden sm:inline">
+                      • تاريخ اليوم: {TODAY_STR}
+                    </span>
                   </div>
                   <h2 className="text-2xl font-black tracking-tight">نظرة عامة على الالتزامات والامتثال</h2>
                   <p className="text-xs text-blue-100/80 mt-1 max-w-xl leading-relaxed">

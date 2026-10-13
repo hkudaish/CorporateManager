@@ -30,12 +30,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const quickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrorMsg('');
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -169,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       type="email"
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 pr-10 pl-4 text-xs focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
-                      placeholder="admin@corporate.sa"
+                      placeholder="name@company.sa"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -213,41 +207,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </>
                   )}
                 </button>
-
-                {/* Demo Quick-Fill Bar */}
-                <div className="pt-4 mt-4 border-t border-slate-100">
-                  <p className="text-[11px] font-bold text-slate-400 mb-2 flex items-center gap-1.5">
-                    <Key size={13} className="text-amber-500" /> حسابات التجربة السريعة (اضغط للتعبئة التلقائية):
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => quickFill('admin@corporate.sa', 'Admin@2026')}
-                      className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-right transition-all group"
-                    >
-                      <span className="block font-black text-slate-800 text-[11px] group-hover:text-blue-700">👑 المدير العام</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">صلاحيات كاملة</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => quickFill('compliance@corporate.sa', 'Comp@2026')}
-                      className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-right transition-all group"
-                    >
-                      <span className="block font-black text-slate-800 text-[11px] group-hover:text-blue-700">⚖️ مسؤول الامتثال</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">الوثائق والإقامات</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => quickFill('finance@corporate.sa', 'Fin@2026')}
-                      className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-right transition-all group"
-                    >
-                      <span className="block font-black text-slate-800 text-[11px] group-hover:text-blue-700">💼 المدير المالي</span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">البنوك والمصروفات</span>
-                    </button>
-                  </div>
-                </div>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4 text-xs">
