@@ -24,6 +24,7 @@ import { api, getToken, removeToken } from './services/api';
 import { ToastContainer } from './components/Toast';
 import { Modal } from './components/Modal';
 import { AuthModal } from './components/AuthModal';
+import { LoginScreen } from './components/LoginScreen';
 import { ExecutiveReportModal } from './components/ExecutiveReportModal';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { EmployeeDetailModal } from './components/EmployeeDetailModal';
@@ -44,6 +45,7 @@ export default function App() {
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -217,26 +219,21 @@ export default function App() {
   // Check auth session on load
   useEffect(() => {
     const initAuth = async () => {
+      setIsCheckingAuth(true);
       const token = getToken();
       if (token) {
         try {
           const user = await api.auth.getMe();
           setCurrentUser(user);
+          syncWithDatabase(true);
         } catch (e) {
           removeToken();
           setCurrentUser(null);
         }
       } else {
-        // Default to demo admin session if no token
-        api.auth.login('admin@corporate.sa', 'Admin@2026')
-          .then((res) => {
-            setCurrentUser(res.user);
-          })
-          .catch(() => {
-            // Keep default state
-          });
+        setCurrentUser(null);
       }
-      syncWithDatabase(true);
+      setIsCheckingAuth(false);
     };
 
     initAuth();
@@ -404,8 +401,7 @@ export default function App() {
     api.auth.logout();
     setCurrentUser(null);
     setIsUserMenuOpen(false);
-    showToast('info', 'تم تسجيل الخروج', 'تم إنهاء الجلسة بنجاح.');
-    setIsAuthModalOpen(true);
+    showToast('info', 'تم تسجيل الخروج', 'تم إنهاء الجلسة وإغلاق النظام بنجاح.');
   };
 
   // Reset to default demo data
@@ -481,6 +477,42 @@ export default function App() {
         return 'مشاهد ومعتمد';
     }
   };
+
+  // 1. Splash screen while checking auth token
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white" dir="rtl">
+        <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/30 animate-pulse mb-6 ring-4 ring-white/10">
+          <Building2 size={36} className="text-white" />
+        </div>
+        <h1 className="text-2xl font-black mb-2 flex items-center gap-2">
+          نظام الامتثال وإدارة الشركات
+          <span className="text-xs bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full border border-blue-400/30 font-mono">PRO</span>
+        </h1>
+        <p className="text-sm text-slate-400 font-medium flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
+          جاري التحقق من صلاحيات الدخول والأمان...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. Strict Authentication Guard: Mandate login before opening the site
+  if (!currentUser) {
+    return (
+      <>
+        <ToastContainer toasts={toasts} onDismiss={removeToast} />
+        <LoginScreen
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            showToast('success', 'تم تسجيل الدخول بنجاح', `مرحباً بك مجدداً، ${user.name}`);
+            syncWithDatabase(true);
+          }}
+          dbStatus={dbHealth}
+        />
+      </>
+    );
+  }
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#F8FAFC] font-sans text-right flex selection:bg-blue-600 selection:text-white">
