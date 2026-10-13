@@ -94,6 +94,51 @@ export const api = {
       });
     },
 
+    async getUsers(): Promise<User[]> {
+      const data = await request<{ success: boolean; users: User[] }>('/auth/users');
+      return data.users;
+    },
+
+    async createUser(userData: {
+      name: string;
+      email: string;
+      password: string;
+      role: string;
+      phone?: string;
+    }): Promise<User> {
+      const data = await request<{ success: boolean; user: User; message: string }>('/auth/users', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      return data.user;
+    },
+
+    async updateUser(id: number, userData: {
+      name: string;
+      email: string;
+      role: string;
+      phone?: string;
+    }): Promise<User> {
+      const data = await request<{ success: boolean; user: User; message: string }>(`/auth/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData),
+      });
+      return data.user;
+    },
+
+    async deleteUser(id: number): Promise<void> {
+      await request<{ success: boolean; message: string }>(`/auth/users/${id}`, {
+        method: 'DELETE',
+      });
+    },
+
+    async resetUserPassword(id: number, newPassword: string): Promise<void> {
+      await request<{ success: boolean; message: string }>(`/auth/users/${id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ newPassword }),
+      });
+    },
+
     logout(): void {
       removeToken();
     },

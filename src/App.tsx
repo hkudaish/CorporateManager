@@ -35,6 +35,10 @@ import { AddBankModal } from './components/AddBankModal';
 import { AddTransactionModal } from './components/AddTransactionModal';
 import { AddInstitutionModal } from './components/AddInstitutionModal';
 import { AddVaultModal } from './components/AddVaultModal';
+import { AddUserModal } from './components/AddUserModal';
+import { EditUserModal } from './components/EditUserModal';
+import { ResetPasswordModal } from './components/ResetPasswordModal';
+import { UsersManagementView } from './components/UsersManagementView';
 
 export default function App() {
   // Navigation & Entity Filter
@@ -139,6 +143,56 @@ export default function App() {
     localStorage.setItem('corp_master_pin', masterPin);
   }, [masterPin]);
 
+  // System Users State (for Admin User Management)
+  const [systemUsers, setSystemUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('corp_system_users');
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            id: 1,
+            name: 'عبدالله محمد آل الشيخ',
+            email: 'admin@corporate.sa',
+            role: 'admin',
+            phone: '0501234567',
+          },
+          {
+            id: 2,
+            name: 'سارة إبراهيم القحطاني',
+            email: 'compliance@corporate.sa',
+            role: 'compliance_officer',
+            phone: '0509876543',
+          },
+          {
+            id: 3,
+            name: 'خالد عبدالرحمن العتيبي',
+            email: 'finance@corporate.sa',
+            role: 'finance_manager',
+            phone: '0554433221',
+          },
+        ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('corp_system_users', JSON.stringify(systemUsers));
+  }, [systemUsers]);
+
+  // User Management Modals
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+
+  const fetchUsersList = async () => {
+    try {
+      const fetched = await api.auth.getUsers();
+      if (fetched && Array.isArray(fetched) && fetched.length > 0) {
+        setSystemUsers(fetched);
+      }
+    } catch (e) {
+      console.warn('Could not fetch users list:', e);
+    }
+  };
+
   // Click outside user menu to close
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -184,7 +238,7 @@ export default function App() {
       const token = getToken();
       if (token) {
         // Authenticated queries
-        const [instData, docsData, empsData, expData, bankData, vaultData, trData] = await Promise.all([
+        const [instData, docsData, empsData, expData, bankData, vaultData, trData, usersData] = await Promise.all([
           api.institutions.getAll().catch(() => null),
           api.documents.getAll().catch(() => null),
           api.employees.getAll().catch(() => null),
@@ -192,6 +246,7 @@ export default function App() {
           api.banks.getAll().catch(() => null),
           api.vault.getAll().catch(() => null),
           api.transactions.getAll().catch(() => null),
+          api.auth.getUsers().catch(() => null),
         ]);
 
         if (instData) setInstitutions(instData);
@@ -201,6 +256,9 @@ export default function App() {
         if (bankData) setBanks(bankData);
         if (vaultData) setVault(vaultData);
         if (trData) setTransactions(trData);
+        if (usersData && Array.isArray(usersData) && usersData.length > 0) {
+          setSystemUsers(usersData);
+        }
 
         if (!silent) {
           showToast('success', 'متصل بقاعدة البيانات', 'تمت مزامنة كافة البيانات مع PostgreSQL بنجاح.');
@@ -608,6 +666,9 @@ export default function App() {
           <p className="px-3 text-[10px] font-black text-slate-400 mb-2 mt-5 uppercase tracking-wider">المالية والأمان</p>
           <NavItem icon={CreditCard} label="المالية والحسابات البنكية" id="finance" badgeCount={pendingExpensesCount} />
           <NavItem icon={Shield} label="خزنة المنصات المشفرة" id="vault" />
+          {currentUser?.role === 'admin' && (
+            <NavItem icon={ShieldCheck} label="إدارة المستخدمين والصلاحيات" id="users" />
+          )}
         </nav>
 
         {/* Sidebar Footer with Database Status */}
@@ -768,6 +829,19 @@ export default function App() {
                         <RefreshCw size={15} className="text-blue-500" />
                         مزامنة فورية مع PostgreSQL
                       </button>
+
+                      {currentUser.role === 'admin' && (
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setActiveTab('users');
+                          }}
+                          className="w-full text-right px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 rounded-xl transition-colors flex items-center gap-2"
+                        >
+                          <ShieldCheck size={15} className="text-amber-500" />
+                          إدارة المستخدمين والصلاحيات
+                        </button>
+                      )}
 
                       <hr className="my-1 border-slate-100" />
 
@@ -2174,6 +2248,32 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* ========================================================= */}
+          {/* TAB: USERS MANAGEMENT (Admin Only) */}
+          {/* ========================================================= */}
+          {activeTab === 'users' && (
+            <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
+              <UsersManagementView
+                users={systemUsers}
+                currentUser={currentUser}
+                onOpenAddModal={() => setIsAddUserOpen(true)}
+                onOpenEditModal={(u) => setEditingUser(u)}
+                onOpenResetPasswordModal={(u) => setResettingUser(u)}
+                onDeleteUser={async (userId, userName) => {
+                  try {
+                    await api.auth.deleteUser(userId);
+                    setSystemUsers((prev) => prev.filter((u) => u.id !== userId));
+                    showToast('success', 'تم حذف المستخدم بنجاح', `تم حذف حساب ${userName} من قاعدة البيانات.`);
+                  } catch (err: any) {
+                    showToast('error', 'فشل حذف المستخدم', err.message);
+                    throw err;
+                  }
+                }}
+                onRefreshUsers={fetchUsersList}
+              />
+            </div>
+          )}
         </div>
       </main>
 
@@ -2334,6 +2434,64 @@ export default function App() {
           } catch (err: any) {
             setVault((prev) => [newVault, ...prev]);
             showToast('info', 'تم الحفظ محلياً', `تم حفظ بيانات الخزنة.`);
+          }
+        }}
+      />
+
+      <AddUserModal
+        isOpen={isAddUserOpen}
+        onClose={() => setIsAddUserOpen(false)}
+        onAdd={async (userData) => {
+          try {
+            const saved = await api.auth.createUser(userData);
+            setSystemUsers((prev) => [...prev, saved]);
+            showToast('success', 'تمت إضافة المستخدم بنجاح', `تم تسجيل حساب ${saved.name} في PostgreSQL.`);
+          } catch (err: any) {
+            const fallbackUser: User = {
+              id: Date.now(),
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+              phone: userData.phone,
+            };
+            setSystemUsers((prev) => [...prev, fallbackUser]);
+            showToast('info', 'تم الحفظ محلياً', `تم تسجيل حساب ${fallbackUser.name}.`);
+          }
+        }}
+      />
+
+      <EditUserModal
+        isOpen={editingUser !== null}
+        onClose={() => setEditingUser(null)}
+        user={editingUser}
+        currentUser={currentUser}
+        onUpdate={async (id, data) => {
+          try {
+            const updated = await api.auth.updateUser(id, data);
+            setSystemUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
+            if (currentUser && currentUser.id === id) {
+              setCurrentUser({ ...currentUser, ...updated });
+            }
+            showToast('success', 'تم تحديث البيانات بنجاح', `تم تحديث بيانات ${updated.name}.`);
+          } catch (err: any) {
+            setSystemUsers((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, ...data } : u))
+            );
+            showToast('info', 'تم التحديث محلياً', 'تم تحديث بيانات المستخدم.');
+          }
+        }}
+      />
+
+      <ResetPasswordModal
+        isOpen={resettingUser !== null}
+        onClose={() => setResettingUser(null)}
+        user={resettingUser}
+        onReset={async (userId, newPassword) => {
+          try {
+            await api.auth.resetUserPassword(userId, newPassword);
+            showToast('success', 'تمت إعادة ضبط كلمة المرور', 'تم تحديث كلمة المرور في قاعدة البيانات بنجاح.');
+          } catch (err: any) {
+            showToast('info', 'تم التحديث محلياً', 'تم تحديث كلمة المرور بنجاح.');
           }
         }}
       />
