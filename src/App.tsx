@@ -4,7 +4,8 @@ import {
   Bell, Search, Plus, Calendar, AlertTriangle, CheckCircle2, Clock,
   Eye, EyeOff, Copy, ChevronDown, Menu, X, FileDigit, Landmark, Settings, LogOut,
   Download, Filter, Building, User as UserIcon, Mail, Phone, MapPin, Hash,
-  Check, RefreshCw, Printer, AlertCircle, ExternalLink, ShieldCheck, Database, HardDrive, Key
+  Check, RefreshCw, Printer, AlertCircle, ExternalLink, ShieldCheck, Database, HardDrive, Key,
+  Trash2
 } from 'lucide-react';
 
 import {
@@ -336,6 +337,60 @@ export default function App() {
   const [isAddTrOpen, setIsAddTrOpen] = useState(false);
   const [isAddInstOpen, setIsAddInstOpen] = useState(false);
   const [isAddVaultOpen, setIsAddVaultOpen] = useState(false);
+  const [deleteConfirmInst, setDeleteConfirmInst] = useState<Institution | null>(null);
+
+  // Handle Delete Institution
+  const handleDeleteInstitution = async (instId: number, instName: string) => {
+    try {
+      await api.institutions.delete(instId);
+    } catch (err: any) {
+      console.warn('Backend delete institution error, falling back locally:', err);
+    }
+
+    setInstitutions((prev) => {
+      const next = prev.filter((i) => i.id !== instId);
+      localStorage.setItem('corp_institutions', JSON.stringify(next));
+      return next;
+    });
+
+    setDocuments((prev) => {
+      const next = prev.filter((d) => d.instId !== instId);
+      localStorage.setItem('corp_documents', JSON.stringify(next));
+      return next;
+    });
+    setEmployees((prev) => {
+      const next = prev.filter((e) => e.instId !== instId);
+      localStorage.setItem('corp_employees', JSON.stringify(next));
+      return next;
+    });
+    setExpenses((prev) => {
+      const next = prev.filter((ex) => ex.instId !== instId);
+      localStorage.setItem('corp_expenses', JSON.stringify(next));
+      return next;
+    });
+    setBanks((prev) => {
+      const next = prev.filter((b) => b.instId !== instId);
+      localStorage.setItem('corp_banks', JSON.stringify(next));
+      return next;
+    });
+    setVault((prev) => {
+      const next = prev.filter((v) => v.instId !== instId);
+      localStorage.setItem('corp_vault', JSON.stringify(next));
+      return next;
+    });
+    setTransactions((prev) => {
+      const next = prev.filter((t) => t.instId !== instId);
+      localStorage.setItem('corp_transactions', JSON.stringify(next));
+      return next;
+    });
+
+    if (selectedInstId === instId.toString()) {
+      setSelectedInstId('all');
+    }
+
+    setDeleteConfirmInst(null);
+    showToast('success', 'تم حذف الكيان بنجاح', `تم حذف منشأة "${instName}" وجميع سجلاتها المرتبطة.`);
+  };
 
   // Detail drawers
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<DocumentItem | null>(null);
@@ -678,9 +733,20 @@ export default function App() {
         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider flex items-center justify-between">
             <span>الكيان النشط</span>
-            <span className="text-[10px] text-blue-600 font-bold cursor-pointer hover:underline" onClick={() => setSelectedInstId('all')}>
-              عرض الكل
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-blue-600 font-bold cursor-pointer hover:underline" onClick={() => setSelectedInstId('all')}>
+                عرض الكل
+              </span>
+              {currentUser?.role === 'admin' && (
+                <span
+                  className="text-[10px] text-emerald-600 font-bold cursor-pointer hover:underline flex items-center gap-0.5"
+                  onClick={() => setIsAddInstOpen(true)}
+                  title="إضافة كيان جديد"
+                >
+                  <Plus size={12} /> جديد
+                </span>
+              )}
+            </div>
           </label>
           <div className="relative group">
             <select
@@ -1436,11 +1502,25 @@ export default function App() {
                               </span>
                             </div>
                           </div>
-                          {isSelected && (
-                            <span className="bg-blue-600 text-white p-1 rounded-full shadow-sm">
-                              <Check size={14} />
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {isSelected && (
+                              <span className="bg-blue-600 text-white p-1 rounded-full shadow-sm" title="الكيان المحدد حالياً">
+                                <Check size={14} />
+                              </span>
+                            )}
+                            {currentUser?.role === 'admin' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmInst(inst);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="حذف هذا الكيان"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Identification Numbers */}
@@ -2510,6 +2590,52 @@ export default function App() {
           }
         }}
       />
+
+      {deleteConfirmInst && (
+        <Modal
+          isOpen={deleteConfirmInst !== null}
+          onClose={() => setDeleteConfirmInst(null)}
+          title=""
+          maxWidth="md"
+        >
+          <div className="p-4 sm:p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-8 ring-red-50">
+              <AlertTriangle size={28} />
+            </div>
+
+            <h3 className="text-base font-black text-slate-800 mb-1">
+              تأكيد حذف المنشأة / الكيان
+            </h3>
+
+            <div className="my-3 p-3 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-center text-xs font-medium leading-relaxed">
+              ⚠️ تحذير: سيؤدي حذف كيان <span className="font-bold">"{deleteConfirmInst.name}"</span> إلى حذف كافة الوثائق والتراخيص وحسابات البنوك وسجلات الموظفين المرتبطة به نهائياً.
+            </div>
+
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              هل أنت متأكد من رغبتك في حذف <span className="font-bold text-slate-800">{deleteConfirmInst.name}</span> (السجل: {deleteConfirmInst.cr})؟
+              لا يمكن التراجع عن هذا الإجراء بعد تنفيذه.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleDeleteInstitution(deleteConfirmInst.id, deleteConfirmInst.name)}
+                className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={16} />
+                تأكيد الحذف النهائي
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmInst(null)}
+                className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors"
+              >
+                إلغاء التراجع
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       <AddVaultModal
         isOpen={isAddVaultOpen}
